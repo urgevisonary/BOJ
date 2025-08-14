@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BOJ — Futures Calculator</title>
+<style>
+  :root{
+    --bg:#0b0f14;--panel:#121821;--muted:#6c7a89;--text:#e9f0f4;--accent:#4dd2ff;--accent2:#9bffd6;
+    --danger:#ff6b6b;--success:#72f5a6;--warn:#ffd166;--border:#1e2a36;
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:linear-gradient(180deg,#0b0f14 0%,#0e141b 100%);
+    color:var(--text);font:500 16px/1.45 Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+  }
+  header{
+    position:sticky;top:0;z-index:10;background:rgba(11,15,20,.6);backdrop-filter: blur(8px);
+    border-bottom:1px solid var(--border);
+  }
+  .wrap{max-width:1100px;margin:0 auto;padding:18px 16px}
+  .brand{display:flex;gap:10px;align-items:center}
+  .logo{
+    width:36px;height:36px;border-radius:12px;background:
+      radial-gradient(120% 120% at 0% 0%,var(--accent) 0%,#1b9fd0 35%,#0d3e55 70%,transparent 72%),
+      radial-gradient(120% 120% at 100% 100%,var(--accent2) 0%,#2fa47b 40%,transparent 42%);
+    box-shadow:0 0 0 1px #1b3c52 inset, 0 10px 30px rgba(77,210,255,.25);
+  }
+  h1{margin:0;font-size:20px;letter-spacing:.4px}
+  .sub{color:var(--muted);font-size:12px;margin-top:2px}
+
+  .grid{
+    display:grid;gap:16px;
+    grid-template-columns: 1.2fr 1fr;
+  }
+  @media (max-width:980px){ .grid{grid-template-columns:1fr} }
+  .card{
+    background:linear-gradient(180deg,#121821 0%,#0f151d 100%);
+    border:1px solid var(--border); border-radius:var(--radius); padding:16px;
+    box-shadow:0 10px 30px rgba(0,0,0,.25);
+  }
+  .card h2{margin:0 0 10px;font-size:16px}
+  .row{display:grid;gap:10px;grid-template-columns:1fr 1fr}
+  @media (max-width:680px){ .row{grid-template-columns:1fr} }
+  label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+  input, select {
+    width:100%;padding:12px 12px;border-radius:12px;border:1px solid var(--border);
+    background:#0c1219;color:var(--text);outline:none;transition:border .2s, box-shadow .2s;
+  }
+  input:focus, select:focus { border-color: var(--accent); box-shadow:0 0 0 3px rgba(77,210,255,.15) }
+  .inline{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .chip{
+    padding:8px 12px;border-radius:999px;border:1px solid var(--border);cursor:pointer;user-select:none;
+    background:#0c1219;color:var(--text);font-size:13px;
+  }
+  .chip.active{border-color:var(--accent); box-shadow:0 0 0 3px rgba(77,210,255,.12) inset}
+  .muted{color:var(--muted)}
+  .out{
+    display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  @media (max-width:680px){ .out{grid-template-columns:1fr} }
+  .kpi{
+    background:#0c1219;border:1px solid var(--border);border-radius:14px;padding:14px;
+  }
+  .kpi .t{font-size:12px;color:var(--muted)}
+  .kpi .v{font-size:18px;margin-top:6px}
+  .good{color:var(--success)} .bad{color:var(--danger)} .warn{color:var(--warn)}
+  .footer-note{color:var(--muted);font-size:12px;margin-top:12px}
+  .small{font-size:12px}
+  .link{color:var(--accent);text-decoration:none}
+  .sep{height:1px;background:var(--border);margin:12px 0}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap brand">
+    <div class="logo" aria-hidden="true"></div>
+    <div>
+      <h1>BOJ — BRAINOFJANI</h1>
+      <div class="sub">PnL • ROE • SL/TP • Liquidation (approx) • Isolated/Cross • Leverage</div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap" id="app">
+  <div class="grid">
+    <!-- LEFT: Inputs -->
+    <section class="card">
+      <h2>Inputs</h2>
+
+      <div class="row">
+        <div>
+          <label>Symbol (Spot/Futures pair)</label>
+          <input id="symbol" value="BTCUSDT" />
+        </div>
+        <div>
+          <label>Position</label>
+          <div class="inline">
+            <button type="button" data-pos="long" class="chip active" id="longBtn">Long</button>
+            <button type="button" data-pos="short" class="chip" id="shortBtn">Short</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Margin Mode</label>
+          <div class="inline">
+            <button type="button" data-mode="isolated" class="chip active" id="isolatedBtn">Isolated</button>
+            <button type="button" data-mode="cross" class="chip" id="crossBtn">Cross</button>
+          </div>
+        </div>
+        <div>
+          <label>Leverage (×)</label>
+          <input id="lev" type="number" step="1" min="1" value="20" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Entry Price</label>
+          <input id="entry" type="number" step="0.01" value="60000" />
+        </div>
+        <div>
+          <label>Current Price</label>
+          <input id="price" type="number" step="0.01" value="60500" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Stop Loss Price (optional)</label>
+          <input id="sl" type="number" step="0.01" placeholder="e.g. 59000" />
+        </div>
+        <div>
+          <label>Take Profit Price (optional)</label>
+          <input id="tp" type="number" step="0.01" placeholder="e.g. 63000" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Qty (Base coin, e.g. BTC)</label>
+          <input id="qty" type="number" step="0.0001" placeholder="e.g. 0.01" />
+        </div>
+        <div>
+          <label>Margin (USDT) — auto-fills Qty if given</label>
+          <input id="margin" type="number" step="0.01" placeholder="e.g. 100" />
+        </div>
+      </div>
+
+      <div class="row" id="crossRow" style="display:none">
+        <div>
+          <label>Wallet Balance for Cross (USDT)</label>
+          <input id="wallet" type="number" step="0.01" placeholder="e.g. 500" />
+        </div>
+        <div>
+          <label>Use % of Wallet for this Position</label>
+          <input id="walletPct" type="number" min="1" max="100" step="1" value="100" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Taker Fee (one side, decimal)</label>
+          <input id="fee" type="number" step="0.0001" value="0.0006" />
+          <div class="small muted">Binance default taker ≈ 0.0006 (0.06%)</div>
+        </div>
+        <div>
+          <label>Maintenance Margin Rate (approx)</label>
+          <input id="mmr" type="number" step="0.0001" value="0.005" />
+          <div class="small muted">Approx 0.5% (varies by tier/instrument)</div>
+        </div>
+      </div>
+
+      <div class="sep"></div>
+      <div class="small muted">Tip: Agar <b>Margin</b> bharoge to Qty auto-calc ho jayegi (Qty = Margin × Leverage / Entry).</div>
+    </section>
+
+    <!-- RIGHT: Outputs -->
+    <section class="card">
+      <h2>Results</h2>
+
+      <div class="out">
+        <div class="kpi">
+          <div class="t">Notional</div>
+          <div class="v" id="notionalV">—</div>
+        </div>
+        <div class="kpi">
+          <div class="t">Initial Margin (Isolated)</div>
+          <div class="v" id="initMarginV">—</div>
+        </div>
+        <div class="kpi">
+          <div class="t">PnL @ Current</div>
+          <div class="v" id="pnlNowV">—</div>
+          <div class="small muted" id="roeNowV">—</div>
+        </div>
+        <div class="kpi">
+          <div class="t">PnL @ SL</div>
+          <div class="v bad" id="pnlSlV">—</div>
+          <div class="small muted" id="roeSlV">—</div>
+        </div>
+        <div class="kpi">
+          <div class="t">PnL @ TP</div>
+          <div class="v good" id="pnlTpV">—</div>
+          <div class="small muted" id="roeTpV">—</div>
+        </div>
+        <div class="kpi">
+          <div class="t">Risk : Reward</div>
+          <div class="v" id="rrV">—</div>
+        </div>
+        <div class="kpi">
+          <div class="t">Est. Liquidation Price</div>
+          <div class="v warn" id="liqV">—</div>
+          <div class="small muted">Approx only</div>
+        </div>
+        <div class="kpi">
+          <div class="t">Fees (round-trip approx)</div>
+          <div class="v" id="feesV">—</div>
+        </div>
+      </div>
+
+      <div class="footer-note">
+        ⚠️ Liq price simplified: Isolated ≈ <span class="small">entry × (1 ± 1/leverage)</span>, Cross ≈
+        <span class="small">(entry ± wallet/qty)</span>, then adjusted by MMR.
+        Real exchange math may differ by tier, funding, ADL, etc.
+      </div>
+    </section>
+  </div>
+</main>
+
+<script>
+(function(){
+  const els = {
+    posBtns: [document.getElementById('longBtn'), document.getElementById('shortBtn')],
+    modeBtns: [document.getElementById('isolatedBtn'), document.getElementById('crossBtn')],
+    crossRow: document.getElementById('crossRow'),
+    symbol: document.getElementById('symbol'),
+    lev: document.getElementById('lev'),
+    entry: document.getElementById('entry'),
+    price: document.getElementById('price'),
+    sl: document.getElementById('sl'),
+    tp: document.getElementById('tp'),
+    qty: document.getElementById('qty'),
+    margin: document.getElementById('margin'),
+    wallet: document.getElementById('wallet'),
+    walletPct: document.getElementById('walletPct'),
+    fee: document.getElementById('fee'),
+    mmr: document.getElementById('mmr'),
+
+    notionalV: document.getElementById('notionalV'),
+    initMarginV: document.getElementById('initMarginV'),
+    pnlNowV: document.getElementById('pnlNowV'),
+    roeNowV: document.getElementById('roeNowV'),
+    pnlSlV: document.getElementById('pnlSlV'),
+    roeSlV: document.getElementById('roeSlV'),
+    pnlTpV: document.getElementById('pnlTpV'),
+    roeTpV: document.getElementById('roeTpV'),
+    rrV: document.getElementById('rrV'),
+    liqV: document.getElementById('liqV'),
+    feesV: document.getElementById('feesV'),
+  };
+
+  let state = {
+    position: 'long',       // long | short
+    mode: 'isolated',       // isolated | cross
+  };
+
+  const fmt = (n, d=2) => {
+    if (!isFinite(n)) return '—';
+    const opts = {maximumFractionDigits:d, minimumFractionDigits:d};
+    return Number(n).toLocaleString(undefined, opts);
+  };
+
+  const save = () => {
+    const data = {
+      position: state.position, mode: state.mode,
+      symbol: els.symbol.value, lev: els.lev.value, entry: els.entry.value, price: els.price.value,
+      sl: els.sl.value, tp: els.tp.value, qty: els.qty.value, margin: els.margin.value,
+      wallet: els.wallet.value, walletPct: els.walletPct.value, fee: els.fee.value, mmr: els.mmr.value
+    };
+    localStorage.setItem('boj_calc_v1', JSON.stringify(data));
+  };
+
+  const load = () => {
+    try{
+      const d = JSON.parse(localStorage.getItem('boj_calc_v1')||'{}');
+      if(!d) return;
+      ['symbol','lev','entry','price','sl','tp','qty','margin','wallet','walletPct','fee','mmr'].forEach(k=>{
+        if(d[k]!==undefined && d[k]!==null && d[k]!=='') els[k].value = d[k];
+      });
+      if(d.position){ setPos(d.position); }
+      if(d.mode){ setMode(d.mode); }
+    }catch(e){}
+  };
+
+  function setPos(pos){
+    state.position = pos;
+    els.posBtns.forEach(b=>{
+      b.classList.toggle('active', b.dataset.pos===pos);
+    });
+    compute();
+  }
+  function setMode(mode){
+    state.mode = mode;
+    els.modeBtns.forEach(b=>{
+      b.classList.toggle('active', b.dataset.mode===mode);
+    });
+    els.crossRow.style.display = (mode==='cross') ? '' : 'none';
+    compute();
+  }
+
+  // event bindings
+  els.posBtns.forEach(btn=>btn.addEventListener('click',()=>setPos(btn.dataset.pos)));
+  els.modeBtns.forEach(btn=>btn.addEventListener('click',()=>setMode(btn.dataset.mode)));
+  document.querySelectorAll('input,select').forEach(el=>{
+    el.addEventListener('input', ()=>{ 
+      // auto compute Qty from Margin if Margin filled
+      if (el === els.margin) autoQtyFromMargin();
+      if (el === els.entry || el === els.lev) autoQtyFromMargin(); // keep in sync
+      compute(); save();
+    });
+  });
+
+  function autoQtyFromMargin(){
+    const margin = parseFloat(els.margin.value);
+    const lev = Math.max(1, parseFloat(els.lev.value));
+    const entry = parseFloat(els.entry.value);
+    if (isFinite(margin) && margin>0 && isFinite(lev) && lev>0 && isFinite(entry) && entry>0){
+      const qty = (margin * lev) / entry;
+      if (!Number.isNaN(qty) && isFinite(qty)) els.qty.value = qty;
+    }
+  }
+
+  function compute(){
+    const posLong = state.position==='long';
+    const isolated = state.mode==='isolated';
+
+    const lev   = Math.max(1, parseFloat(els.lev.value));
+    const entry = parseFloat(els.entry.value);
+    const price = parseFloat(els.price.value);
+    const sl    = parseFloat(els.sl.value);
+    const tp    = parseFloat(els.tp.value);
+    let qty     = parseFloat(els.qty.value);
+    let margin  = parseFloat(els.margin.value);
+    const fee   = Math.max(0, parseFloat(els.fee.value));  // decimal
+    const mmr   = Math.max(0, parseFloat(els.mmr.value));  // decimal
+
+    if (!isFinite(qty) && isFinite(margin) && isFinite(entry) && isFinite(lev) && entry>0){
+      qty = (margin * lev) / entry;
+    }
+    if (!isFinite(margin) && isFinite(qty) && isFinite(entry) && isFinite(lev)){
+      margin = (qty*entry)/lev;
+    }
+
+    const notional = isFinite(qty)&&isFinite(entry) ? qty*entry : NaN;
+    const initMargin = isFinite(notional)&&isFinite(lev) ? notional/lev : NaN;
+
+    // choose effective margin for ROE and risk
+    const wallet = parseFloat(els.wallet.value);
+    const walletPct = Math.max(1, Math.min(100, parseFloat(els.walletPct.value)||100));
+    const crossAvail = (isFinite(wallet) ? wallet*(walletPct/100) : NaN);
+
+    const useMargin = isolated ? initMargin : (isFinite(crossAvail) ? crossAvail : initMargin);
+
+    // PnL helper
+    function pnlAt(target){
+      if (!isFinite(target)||!isFinite(entry)||!isFinite(qty)) return NaN;
+      const diff = posLong ? (target - entry) : (entry - target);
+      return diff * qty;
+    }
+    const pnlNow = pnlAt(price);
+    const pnlSl  = pnlAt(sl);
+    const pnlTp  = pnlAt(tp);
+
+    const roeNow = isFinite(pnlNow)&&isFinite(useMargin)&&useMargin>0 ? (pnlNow/useMargin)*100 : NaN;
+    const roeSl  = isFinite(pnlSl)&&isFinite(useMargin)&&useMargin>0 ? (pnlSl/useMargin)*100 : NaN;
+    const roeTp  = isFinite(pnlTp)&&isFinite(useMargin)&&useMargin>0 ? (pnlTp/useMargin)*100 : NaN;
+
+    // Risk:Reward
+    let rr = '—';
+    if (isFinite(pnlSl) && pnlSl<0 && isFinite(pnlTp) && pnlTp>0){
+      rr = `${fmt(Math.abs(pnlTp/Math.abs(pnlSl)),2)} : 1`;
+    }
+
+    // Fees (approx, round-trip: entry + exit)
+    const fees = (isFinite(notional) && isFinite(price))
+      ? (notional*fee + (isFinite(tp)? Math.abs(tp*qty)*fee : Math.abs(price*qty)*fee))
+      : NaN;
+
+    // Liquidation price (approx)
+    let liq = NaN;
+    if (isFinite(entry) && entry>0 && isFinite(qty) && qty>0){
+      if (isolated){
+        // Isolated approx: entry * (1 ± 1/leverage), adjusted by MMR
+        if (posLong) liq = entry * (1 - 1/lev);
+        else         liq = entry * (1 + 1/lev);
+      }else{
+        // Cross approx: entry ± (available wallet / qty)
+        if (isFinite(crossAvail) && crossAvail>0){
+          if (posLong) liq = entry - (crossAvail/qty);
+          else         liq = entry + (crossAvail/qty);
+        }
+      }
+      if (isFinite(liq)){
+        // maintenance margin tweak
+        liq = posLong ? liq*(1 - mmr) : liq*(1 + mmr);
+      }
+    }
+
+    // Paint
+    els.notionalV.textContent   = isFinite(notional) ? `${fmt(notional,2)} USDT` : '—';
+    els.initMarginV.textContent = isFinite(initMargin) ? `${fmt(initMargin,2)} USDT` : '—';
+
+    const sign = v => (isFinite(v) ? (v>0?'good':(v<0?'bad':'')) : '');
+    els.pnlNowV.textContent = isFinite(pnlNow) ? `${pnlNow>0?'+':''}${fmt(pnlNow,2)} USDT` : '—';
+    els.pnlNowV.className = 'v ' + sign(pnlNow);
+    els.roeNowV.textContent = isFinite(roeNow) ? `ROE: ${roeNow>0?'+':''}${fmt(roeNow,2)}%` : 'ROE: —';
+
+    els.pnlSlV.textContent  = isFinite(pnlSl) ? `${pnlSl>0?'+':''}${fmt(pnlSl,2)} USDT` : '—';
+    els.roeSlV.textContent  = isFinite(roeSl) ? `ROE: ${roeSl>0?'+':''}${fmt(roeSl,2)}%` : 'ROE: —';
+
+    els.pnlTpV.textContent  = isFinite(pnlTp) ? `${pnlTp>0?'+':''}${fmt(pnlTp,2)} USDT` : '—';
+    els.roeTpV.textContent  = isFinite(roeTp) ? `ROE: ${roeTp>0?'+':''}${fmt(roeTp,2)}%` : 'ROE: —';
+
+    els.rrV.textContent     = rr;
+    els.liqV.textContent    = isFinite(liq) ? `${fmt(liq,2)} ${els.symbol.value}` : '—';
+    els.feesV.textContent   = isFinite(fees) ? `${fmt(fees,2)} USDT` : '—';
+  }
+
+  load();
+  compute();
+})();
+</script>
+</body>
+</html>
